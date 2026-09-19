@@ -1,38 +1,38 @@
-# onepassword-note-dedupe
+# text-dedupe
 
 A small, dependency-free Python script for cleaning up a messy plain-text
-secure note (the kind of freeform note that accumulates duplicate entries
-over time — often from a bad password-manager sync) — for example a
-1Password "Secure Note" full of AppleCare records, software license keys,
-and bare lists of app names or URLs, with the occasional duplicate block or
-duplicate line mixed in.
+document that accumulated duplicate entries over time — a notes file, a
+scratch document, an export from some other tool — where the content is a
+mix of shapes: multi-line records, flat lists, and one-off lines, rather
+than a uniform table or a list of identical rows.
 
-It never talks to any network, API, or password-manager CLI. It only ever
-reads a plain-text file (or your clipboard) and writes a plain-text file.
-That's intentional — this is meant to be safe to run on sensitive personal
-data without that data going anywhere except your own disk.
+It never talks to any network or external API. It only ever reads a
+plain-text file (or your clipboard) and writes a plain-text file. That's
+intentional — this is meant to be safe to run on sensitive personal data
+(license keys, account records, anything else) without that data going
+anywhere except your own disk.
 
 ## Why not just `sort -u` or `awk '!seen[$0]++'`?
 
-Those dedupe whole *lines*. A secure note like this is really a mix of
-several different shapes in one file:
+Those dedupe whole *lines*. A real-world messy notes file is usually a mix
+of several different shapes in one document:
 
-- multi-line **records** (a product name, then a few `Label: value` lines)
-  that need to be treated as one atomic unit, not deduped line-by-line
-- flat **lists** (bare app names, bare URLs) where duplicate lines within
+- multi-line **records** (a name, then a few `Label: value` lines) that
+  need to be treated as one atomic unit, not deduped line-by-line
+- flat **lists** (bare item names, bare URLs) where duplicate lines within
   the list genuinely should be removed
 - entries that are *almost* identical but **must never be merged**, because
-  the one thing that differs is the part that matters (e.g. two software
-  licenses for the same product with two different serial numbers)
+  the one thing that differs is the part that matters (e.g. two license
+  records for the same product with two different serial numbers)
 
 A plain line-based or whole-file dedupe either misses cross-block
 duplicates entirely, or is dangerous enough to silently merge two
-genuinely different license keys because the surrounding text happens to
-be 95% identical. This script is built around avoiding both failure modes.
+genuinely different records because the surrounding text happens to be 95%
+identical. This script is built around avoiding both failure modes.
 
 ## What it does
 
-- Splits the note into blocks separated by blank lines, and treats each
+- Splits the document into blocks separated by blank lines, and treats each
   block as an atomic record.
 - Re-attaches a block that starts with a bare continuation label (`License
   Key:`, `Serial:`, `Key:`, `Code:`, `Number:`, `User ID:`, `Registration
@@ -43,14 +43,14 @@ be 95% identical. This script is built around avoiding both failure modes.
   boilerplate `Name:` line accidentally typed twice in one record).
 - Drops a block that's an **exact duplicate** of an earlier block.
 - Drops a block that's a **near duplicate** of an earlier block (similarity
-  ratio ≥ `--near-threshold`, default 0.90) — this catches the "duplicated
-  a couple of times because of a bad sync" case even when the text isn't
-  byte-identical.
+  ratio ≥ `--near-threshold`, default 0.90) — this catches entries
+  duplicated with minor formatting differences (e.g. from a bad sync)
+  even when the text isn't byte-identical.
 - **Never merges two blocks on text similarity alone if either one contains
-  a license-key/serial/agreement-number-shaped identifier.** In that case
-  the identifiers must match *exactly* for the blocks to be considered
-  duplicates at all — this is what keeps "Data Rescue 3" (serial ending
-  `-4`) and "Data Rescue 4" (serial ending `-4` too, but a different
+  a license-key/serial/ID-number-shaped identifier.** In that case the
+  identifiers must match *exactly* for the blocks to be considered
+  duplicates at all — this is what keeps "Widget Pro 3" (serial ending
+  `-4`) and "Widget Pro 4" (serial ending `-4` too, but a different
   product) from ever being treated as the same entry just because most of
   the surrounding text matches.
 - Drops duplicate **URLs**, matched document-wide (not just within one
@@ -58,9 +58,9 @@ be 95% identical. This script is built around avoiding both failure modes.
   `https://Example.com/x/` and `https://example.com/x` are recognized as
   the same URL.
 - Within any block that looks like a genuine flat list (no `Label:` lines
-  anywhere in it, mostly short bare tokens — the AppleCare-style record
-  above never qualifies, since it has `Label:` lines), dedupes individual
-  list lines document-wide while preserving first-seen order.
+  anywhere in it, mostly short bare tokens — a record with `Label:` lines
+  never qualifies), dedupes individual list lines document-wide while
+  preserving first-seen order.
 - Only ever prints counts and short markers like `block #4 dropped
   (exact), duplicate of block #1` — never the actual content of what was
   removed or kept.
@@ -69,19 +69,18 @@ be 95% identical. This script is built around avoiding both failure modes.
 
 ```
 # one input file
-python3 dedupe_note.py INPUT.txt OUTPUT.txt
+python3 dedupe_text.py INPUT.txt OUTPUT.txt
 
 # multiple input files (e.g. duplicate copies you exported separately) --
 # the last argument is always the output file, everything before it is
 # concatenated first and then deduped as one document
-python3 dedupe_note.py INPUT1.txt INPUT2.txt INPUT3.txt OUTPUT.txt
+python3 dedupe_text.py INPUT1.txt INPUT2.txt INPUT3.txt OUTPUT.txt
 
-# clipboard instead of a file: copy the note's text, then pass just the
-# output path
-python3 dedupe_note.py OUTPUT.txt
+# clipboard instead of a file: copy the text, then pass just the output path
+python3 dedupe_text.py OUTPUT.txt
 
 # tune how aggressive near-duplicate block matching is (0-1, default 0.90)
-python3 dedupe_note.py INPUT.txt OUTPUT.txt --near-threshold 0.85
+python3 dedupe_text.py INPUT.txt OUTPUT.txt --near-threshold 0.85
 ```
 
 Requires Python 3, no external dependencies (stdlib only). Clipboard mode
@@ -89,52 +88,56 @@ uses macOS's `pbpaste`.
 
 ## Example
 
-[`examples/sample-input.txt`](examples/sample-input.txt) is entirely fake
-data (made-up names, emails, and license keys) shaped like a real secure
-note, showing every case the script handles: exact duplicate records, an
-AppleCare-style entry duplicated by a bad sync, a bare word list with a
-repeat, a URL duplicated across two different blocks (with a trailing-slash
+[`examples/input1.txt`](examples/input1.txt) and
+[`examples/input2.txt`](examples/input2.txt) are entirely fake data
+(made-up names, emails, and keys) standing in for two exports of the same
+underlying document — e.g. two backups/syncs taken at different times.
+Between them they cover every case the script handles: exact duplicate
+records repeated across the two files, overlapping items in a bare word
+list, a URL duplicated across the two files (with a trailing-slash
 difference), two different products with similar-looking serials that must
-stay separate, and a record accidentally split by a stray blank line.
+stay separate even when one copy is repeated, and a record that got
+accidentally split by a stray blank line in one file but not the other.
 
 Run:
 
 ```
-python3 dedupe_note.py examples/sample-input.txt examples/sample-output.txt
+python3 dedupe_text.py examples/input1.txt examples/input2.txt examples/sample-out.txt
 ```
 
 Output:
 
 ```
 Duplicate URL lines removed (document-wide): 1
-Original blocks: 13
-Kept blocks:     11
-Dropped blocks:  2
-  - block #2 dropped (exact), duplicate of block #1
-  - block #10 dropped (exact), duplicate of block #7
+Original blocks: 15
+Kept blocks:     12
+Dropped blocks:  3
+  - block #8 dropped (exact), duplicate of block #1
+  - block #11 dropped (exact), duplicate of block #5
+  - block #13 dropped (exact), duplicate of block #7
 
-Wrote deduped output to: examples/sample-output.txt
+Wrote deduped output to: examples/sample-out.txt
 ```
 
-[`examples/sample-output.txt`](examples/sample-output.txt) is the result —
-note that the two "Data Rescue 3" entries with *different* serial numbers
-both survive (they're different licenses), "Data Rescue 4" survives
-(different product, different serial), and the "SampleSync Pro" record
-stays intact as one block even though its `License Key:` line was
-originally separated from the rest by a blank line in the input.
+[`examples/sample-out.txt`](examples/sample-out.txt) is the result — note
+that the two "Data Rescue 3" entries with *different* serial numbers both
+survive (they're different licenses), "Data Rescue 4" survives (different
+product, different serial), items unique to only one input file (like
+`brand-new-tool`) are kept, and the "SampleSync Pro" record merges cleanly
+into one block even though its `License Key:` line was separated from the
+rest by a stray blank line in `input1.txt` but not in `input2.txt`.
 
-## Recommended workflow for a real secure note
+## Recommended workflow for sensitive content
 
-1. Export the note's content to a plain-text file (or just copy it to your
+1. Export the content to a plain-text file (or just copy it to your
    clipboard).
-2. Run the script in `--dry-run`-style fashion by writing to a scratch
-   output file first, and review that file yourself before doing anything
-   else with it.
+2. Write the result to a scratch output file first, and review that file
+   yourself before doing anything else with it.
 3. Diff the input and output yourself (e.g. `diff note-in.txt
    note-out.txt`) to see exactly what changed.
-4. Once you're satisfied, copy the deduped content back into your password
-   manager by hand, and delete the plain-text scratch files — they hold
-   plaintext on disk.
+4. Once you're satisfied, copy the deduped content back to wherever it
+   belongs, and delete the plain-text scratch files — they hold plaintext
+   on disk.
 
 ## License
 

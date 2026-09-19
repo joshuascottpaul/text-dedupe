@@ -1,0 +1,29 @@
+=AppleCare for late 2013 rMBP=
+agreement 1234567890
+hardware serial ABCDE12FGHI
+coverage end date 5/27/2029
+
+csi
+imprintdev
+store-demo
+brand-new-tool
+
+beta-tool
+https://example.com/widgets/gizmo-a
+
+Data Rescue 3
+Developer: Prosoft Engineering, Inc.
+Jane Smith jane@example.com 1000-1111-2222-3333-4
+
+Data Rescue 3
+Developer: Prosoft Engineering, Inc.
+Jane Smith jane@example.com 1000-1111-2222-4444-9
+
+SampleSync Pro
+Name: Jane Smith
+Email: jane@example.com
+Serial:Product: SampleSync Pro
+License Key: Z 1A2B 3C4D 5E6F 7A8B 9C0D 1E2F 3A4B 5C6D
+
+CleanTool 2
+Serial:xk29917182212abc

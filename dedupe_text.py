@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 """
-Dedupe a plain-text file (e.g. a .txt export of a password-manager secure
-note).
+Dedupe a plain-text file of loosely structured content -- e.g. a messy notes
+file, an export of a password-manager secure note, a scratch document that
+accumulated duplicate entries over time.
 
 RUN THIS YOURSELF IN YOUR OWN TERMINAL on files that already live on your
-disk (or your clipboard). It never talks to any network or password-manager
-CLI/API -- it only ever reads and writes plain text.
+disk (or your clipboard). It never talks to any network or external API --
+it only ever reads and writes plain text.
 
 Usage:
   # one or more input files, last argument is always the output file
-  python3 dedupe_note.py INPUT.txt OUTPUT.txt
-  python3 dedupe_note.py INPUT1.txt INPUT2.txt INPUT3.txt OUTPUT.txt
+  python3 dedupe_text.py INPUT.txt OUTPUT.txt
+  python3 dedupe_text.py INPUT1.txt INPUT2.txt INPUT3.txt OUTPUT.txt
 
   # single argument = read from the clipboard instead, write to that file
-  python3 dedupe_note.py OUTPUT.txt
+  python3 dedupe_text.py OUTPUT.txt
 
   # optional tuning, works with either form
-  python3 dedupe_note.py INPUT.txt OUTPUT.txt --near-threshold 0.85
+  python3 dedupe_text.py INPUT.txt OUTPUT.txt --near-threshold 0.85
 
 Only counts and short "block #N dropped" markers are printed -- never the
 block content itself.
@@ -289,7 +290,7 @@ def main():
         f.write(new_text)
 
     print(f"\nWrote deduped output to: {output_path}")
-    print("Review it yourself, then copy the content back into 1Password by hand.")
+    print("Review it yourself before using it in place of the original.")
 
 
 if __name__ == "__main__":
