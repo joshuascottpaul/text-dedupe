@@ -56,7 +56,14 @@ identical. This script is built around avoiding both failure modes.
 - Drops duplicate **URLs**, matched document-wide (not just within one
   block), normalizing away a trailing slash and scheme/host case so
   `https://Example.com/x/` and `https://example.com/x` are recognized as
-  the same URL.
+  the same URL. Only the redundant URL *line* is removed, wherever its
+  block is and whatever label precedes it — the first occurrence's block
+  is left fully intact (label + URL), and every later occurrence keeps its
+  own label with just its now-duplicate URL line deleted underneath. This
+  can leave a bare label behind (see `beta-tool` in the example below) —
+  that's expected: it's a marker that this label's URL was already
+  recorded earlier in the document, not a sign that the tool dropped
+  something incorrectly.
 - Within any block that looks like a genuine flat list (no `Label:` lines
   anywhere in it, mostly short bare tokens — a record with `Label:` lines
   never qualifies), dedupes individual list lines document-wide while
@@ -126,6 +133,11 @@ product, different serial), items unique to only one input file (like
 `brand-new-tool`) are kept, and the "SampleSync Pro" record merges cleanly
 into one block even though its `License Key:` line was separated from the
 rest by a stray blank line in `input1.txt` but not in `input2.txt`.
+Also note `beta-tool` ends up with no URL under it in the output —
+`alpha-tool`'s block (the first occurrence) keeps its label and URL
+untouched, and `beta-tool`'s duplicate URL (same page, just a trailing
+slash difference) is the one that gets removed, leaving its label behind
+as a marker rather than being deleted outright.
 
 ## Recommended workflow for sensitive content
 
