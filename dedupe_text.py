@@ -47,27 +47,6 @@ def normalize_url(u):
     return scheme_host + path
 
 
-def dedupe_urls_globally(text):
-    """Drop exact/near-identical whole-line URLs wherever they occur in the
-    document, regardless of which paragraph/block they're in -- fixes the
-    case where the same URL is duplicated across two different blocks
-    rather than repeated within a single block."""
-    lines = text.split("\n")
-    seen = set()
-    out_lines = []
-    dropped = 0
-    for line in lines:
-        m = URL_LINE_RE.match(line.strip())
-        if m:
-            key = normalize_url(m.group(1))
-            if key in seen:
-                dropped += 1
-                continue
-            seen.add(key)
-        out_lines.append(line)
-    return "\n".join(out_lines), dropped
-
-
 def split_blocks(text):
     raw = text.replace("\r\n", "\n")
     blocks = [b.strip("\n") for b in raw.split("\n\n")]
@@ -163,30 +142,73 @@ def has_structural_colon(line):
     return ":" in s
 
 
+def is_listy_block(lines):
+    """True for a genuine flat list of bare short entries (app names,
+    hostnames, bare URLs) -- no line has a structural colon, and most
+    lines are one or two bare tokens. A record with 'Label:' lines never
+    qualifies, no matter how short its lines are."""
+    non_empty = [l for l in lines if l.strip()]
+    return (
+        len(non_empty) >= 3
+        and not any(has_structural_colon(l) for l in non_empty)
+        and sum(1 for l in non_empty if len(l.split()) <= 2) / len(non_empty) > 0.7
+    )
+
+
+def merge_duplicate_url_labels(blocks):
+    """For a block that pairs exactly one URL with one or more label lines
+    (e.g. 'alpha-tool' / 'https://example.com/x/') -- as opposed to a bare
+    multi-item list, which is left to dedupe_wordlist_lines -- if that same
+    URL already appeared in an earlier block, migrate this block's labels
+    up into that earlier block (as additional aliases, inserted right
+    before the URL line) instead of leaving them behind as an orphan.
+    The whole duplicate block is then dropped. Blocks with zero URLs, or
+    more than one URL, are left untouched -- ambiguous shapes aren't worth
+    guessing about."""
+    seen_target = {}  # normalized_url -> index into `out`
+    out = []
+    merged = 0
+    for b in blocks:
+        lines = b.split("\n")
+        if is_listy_block(lines):
+            out.append(b)
+            continue
+        url_matches = [(i, URL_LINE_RE.match(l.strip())) for i, l in enumerate(lines)]
+        url_matches = [(i, m) for i, m in url_matches if m]
+        if len(url_matches) != 1:
+            out.append(b)
+            continue
+        url_idx, url_match = url_matches[0]
+        key = normalize_url(url_match.group(1))
+        labels = [l for i, l in enumerate(lines) if i != url_idx and l.strip()]
+        if key in seen_target:
+            target_i = seen_target[key]
+            target_lines = out[target_i].split("\n")
+            t_url_idxs = [i for i, l in enumerate(target_lines) if URL_LINE_RE.match(l.strip())]
+            insert_at = t_url_idxs[0] if t_url_idxs else len(target_lines)
+            existing = {l.strip() for l in target_lines}
+            new_labels = [lab for lab in labels if lab.strip() not in existing]
+            if new_labels:
+                target_lines[insert_at:insert_at] = new_labels
+                out[target_i] = "\n".join(target_lines)
+            merged += 1
+        else:
+            seen_target[key] = len(out)
+            out.append(b)
+    return out, merged
+
+
 def dedupe_wordlist_lines(blocks):
     """Inside any block that looks like a flat list of short lines (no
     key:value / heading structure -- e.g. a bare list of hostnames or URLs),
     dedupe individual lines while preserving first-seen order. Tracks seen
     lines GLOBALLY across every listy block (not reset per block), so the
-    same entry repeated in two separate list-style blocks still gets caught.
-    A block is disqualified from "listy" entirely if ANY line has a
-    structural colon -- that's the signal it's a multi-field record (e.g.
-    'Name: Joshua Paul', 'License Key: ...'), never a bare list, even if
-    its lines happen to be short. Without this guard, a record's short
-    lines could get compared against the SAME global seen-set as unrelated
-    word lists, silently deleting a boilerplate line (like a repeated
-    'Name:' or 'Email:' line) from a completely different, later record."""
+    same entry repeated in two separate list-style blocks still gets caught."""
     out = []
     seen = set()
     for b in blocks:
         lines = b.split("\n")
-        non_empty = [l for l in lines if l.strip()]
-        listy = (
-            len(non_empty) >= 3
-            and not any(has_structural_colon(l) for l in non_empty)
-            and sum(1 for l in non_empty if len(l.split()) <= 2) / len(non_empty) > 0.7
-        )
-        if listy:
+        if is_listy_block(lines):
             new_lines = []
             for l in lines:
                 m = URL_LINE_RE.match(l.strip())
@@ -270,16 +292,16 @@ def main():
         print("Input is empty.", file=sys.stderr)
         sys.exit(1)
 
-    text, url_dropped = dedupe_urls_globally(text)
-
     blocks = split_blocks(text)
     blocks = merge_stray_continuations(blocks)
     blocks = [dedupe_exact_lines_within_block(b) for b in blocks]
+    original_block_count = len(blocks)
+    blocks, url_labels_merged = merge_duplicate_url_labels(blocks)
     blocks = dedupe_wordlist_lines(blocks)
     kept, dropped = dedupe_blocks(blocks, args.near_threshold)
 
-    print(f"Duplicate URL lines removed (document-wide): {url_dropped}")
-    print(f"Original blocks: {len(blocks)}")
+    print(f"Duplicate-URL blocks merged (label moved to earlier entry): {url_labels_merged}")
+    print(f"Original blocks: {original_block_count}")
     print(f"Kept blocks:     {len(kept)}")
     print(f"Dropped blocks:  {len(dropped)}")
     for i, reason, matched in dropped:

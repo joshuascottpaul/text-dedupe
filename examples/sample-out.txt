@@ -17,6 +17,7 @@ agar
 sample-ecard
 
 alpha-tool
+beta-tool
 https://example.com/widgets/gizmo-a/
 
 Intaglio
@@ -38,8 +39,6 @@ Serial:Product: SampleSync Pro
 License Key: Z 1A2B 3C4D 5E6F 7A8B 9C0D 1E2F 3A4B 5C6D
 
 brand-new-tool
-
-beta-tool
 
 Data Rescue 3
 Developer: Prosoft Engineering, Inc.

@@ -53,17 +53,18 @@ identical. This script is built around avoiding both failure modes.
   `-4`) and "Widget Pro 4" (serial ending `-4` too, but a different
   product) from ever being treated as the same entry just because most of
   the surrounding text matches.
-- Drops duplicate **URLs**, matched document-wide (not just within one
-  block), normalizing away a trailing slash and scheme/host case so
-  `https://Example.com/x/` and `https://example.com/x` are recognized as
-  the same URL. Only the redundant URL *line* is removed, wherever its
-  block is and whatever label precedes it — the first occurrence's block
-  is left fully intact (label + URL), and every later occurrence keeps its
-  own label with just its now-duplicate URL line deleted underneath. This
-  can leave a bare label behind (see `beta-tool` in the example below) —
-  that's expected: it's a marker that this label's URL was already
-  recorded earlier in the document, not a sign that the tool dropped
-  something incorrectly.
+- Merges a **label+URL block that duplicates an earlier one**, normalizing
+  away a trailing slash and scheme/host case so `https://Example.com/x/`
+  and `https://example.com/x` are recognized as the same URL. Rather than
+  deleting the duplicate outright, its label is moved up to join the
+  first-seen block as an additional alias (inserted right before the URL
+  line), and the now-empty duplicate block is dropped entirely — so
+  `alpha-tool` / `https://.../x/` followed later by `beta-tool` /
+  `https://.../x` becomes one block with both labels stacked above the one
+  surviving URL, instead of leaving `beta-tool` behind as an orphan. This
+  only applies to a block pairing exactly one URL with label line(s) —
+  a block with zero URLs, or more than one, is left untouched as too
+  ambiguous to guess about.
 - Within any block that looks like a genuine flat list (no `Label:` lines
   anywhere in it, mostly short bare tokens — a record with `Label:` lines
   never qualifies), dedupes individual list lines document-wide while
@@ -115,13 +116,13 @@ python3 dedupe_text.py examples/input1.txt examples/input2.txt examples/sample-o
 Output:
 
 ```
-Duplicate URL lines removed (document-wide): 1
+Duplicate-URL blocks merged (label moved to earlier entry): 1
 Original blocks: 15
-Kept blocks:     12
+Kept blocks:     11
 Dropped blocks:  3
   - block #8 dropped (exact), duplicate of block #1
-  - block #11 dropped (exact), duplicate of block #5
-  - block #13 dropped (exact), duplicate of block #7
+  - block #10 dropped (exact), duplicate of block #5
+  - block #12 dropped (exact), duplicate of block #7
 
 Wrote deduped output to: examples/sample-out.txt
 ```
@@ -132,12 +133,12 @@ survive (they're different licenses), "Data Rescue 4" survives (different
 product, different serial), items unique to only one input file (like
 `brand-new-tool`) are kept, and the "SampleSync Pro" record merges cleanly
 into one block even though its `License Key:` line was separated from the
-rest by a stray blank line in `input1.txt` but not in `input2.txt`.
-Also note `beta-tool` ends up with no URL under it in the output —
-`alpha-tool`'s block (the first occurrence) keeps its label and URL
-untouched, and `beta-tool`'s duplicate URL (same page, just a trailing
-slash difference) is the one that gets removed, leaving its label behind
-as a marker rather than being deleted outright.
+rest by a stray blank line in `input1.txt` but not in `input2.txt`. Also
+note `alpha-tool` and `beta-tool` end up stacked as two labels over one
+surviving URL — `beta-tool`'s URL (same page, just a trailing-slash
+difference) was recognized as a duplicate of `alpha-tool`'s, so its label
+was moved up to join `alpha-tool`'s block instead of being left behind as
+an orphan.
 
 ## Recommended workflow for sensitive content
 
